@@ -6,11 +6,7 @@
 #include "odbc.h"
 #include <stdio.h> 
 
-/*
- * example 3 with a queries build on-the-fly, the bad way
- */
-
-int main(void) {
+int Find(void) {
     SQLHENV env = NULL;
     SQLHDBC dbc = NULL;
     SQLHSTMT stmt = NULL;
@@ -38,7 +34,7 @@ int main(void) {
     while (fgets(x, (int) sizeof(x), stdin) != NULL) {
         char query[BufferLength + 28];
         /* snprintf is not defined if ansi flag is enabled */
-        (void) snprintf(query, (size_t)(BufferLength + 27), "select  p.quantityinstock from products where p.productcode = \'%s\';", x);
+        (void) snprintf(query, (size_t)(BufferLength + 27), "SELECT p.productcode, p.productname FROM products p WHERE p.productname LIKE \'%s\' ORDER BY p.productcode;", x);
         /*primer ojo*/
         printf ("%s \n", query);
 
@@ -79,4 +75,3 @@ int main(void) {
 
     return EXIT_SUCCESS;
 }
-
