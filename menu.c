@@ -2,7 +2,6 @@
 #include <stdlib.h>
 #include "odbc.h"
 
-
 /* #include "menu_template.h" */
 /* #ifndef A2BIS_MENU_TEMPLATE_H */
 /* #define A2BIS_MENU_TEMPLATE_H */
@@ -67,17 +66,21 @@ int main(void) {
         nChoice = ShowMainMenu();
         switch (nChoice) {
             case 1: {
-                ShowRhymeMenu();
+                Products();
             }
                 break;
 
             case 2: {
-                ShowFairyMenu();
+                Orders();
             }
                 break;
 
             case 3: {
-                printf("Bye Bye\n\n");
+                Customers();
+            }
+
+            case 4: {
+                exit();
             }
                 break;
         }
@@ -136,7 +139,7 @@ int ShowMainMenu() {
  * @author rmarabini
  */
 
-void ShowRhymeMenu() {
+void Products() {
     int nChoice = 0;
     do {
         nChoice = ShowRhymeSubMenu();
@@ -173,7 +176,7 @@ void ShowRhymeMenu() {
  * @author rmarabini
  */
 
- int ShowRhymeSubMenu() {
+ int ShowProductSubmenu() {
     int nSelected = 0;
     char buf[16];
 
@@ -213,7 +216,7 @@ void ShowRhymeMenu() {
  * @author rmarabini
  */
 
-void ShowFairyMenu() {
+void ShowOrderMenu() {
     int nChoice = 0;
 
     do {
@@ -249,7 +252,65 @@ void ShowFairyMenu() {
  * @return selected option
  * @author rmarabini
  */
- int ShowFairySubMenu() {
+ int ShowOrderSubMenu() {
+    int nSelected = 0;
+    char buf[16];
+
+    do {
+
+        printf(" (1) The zub zubs\n"
+               " (2) The BFG\n"
+               " (3) PrintAliens\n"
+               " (4) Quit\n\n");
+
+        printf("Enter a number that corresponds to your choice > ");
+        if (!fgets(buf, 16, stdin))
+            /* reading input failed, give up: */
+            nSelected =0;
+        else
+            /* have some input, convert it to integer: */
+            nSelected = atoi(buf);
+        printf("\n");
+
+        if ((nSelected < 1) || (nSelected > 4)) {
+            printf("You have entered an invalid choice. Please try again\n\n\n");
+        }
+    } while ((nSelected < 1) || (nSelected > 4));
+
+    return nSelected;
+}
+
+void ShowCustumersMenu() {
+    int nChoice = 0;
+
+    do {
+        nChoice = ShowFairySubMenu();
+        switch (nChoice) {
+            case 1: {
+                PrintZub();
+            }
+                break;
+
+            case 2: {
+                PrintBigFatGit();
+            }
+                break;
+
+            case 3: {
+                PrintAliens();
+            }
+                break;
+
+            case 4: {
+                printf("Bye Bye\n\n");
+            }
+                break;
+        }
+    } while (nChoice != 4);
+
+}
+
+int ShowCustomerSubMenu() {
     int nSelected = 0;
     char buf[16];
 
