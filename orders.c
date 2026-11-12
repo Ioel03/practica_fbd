@@ -54,9 +54,7 @@ void ShowOrdersMenu(void) {
     } while (nChoice != 4);
 }
 
-/*
- * example 4 with a queries build on-the-fly, the good way
- */
+
 static int OrdersOpen(void) {
     SQLHENV env = NULL;
     SQLHDBC dbc = NULL;
@@ -72,7 +70,7 @@ static int OrdersOpen(void) {
         return EXIT_FAILURE;
     }
 
-    /* Allocate a statement handle */
+    
     ret = SQLAllocHandle(SQL_HANDLE_STMT, dbc, &stmt);
     ret = SQLPrepare(stmt, (SQLCHAR*) "SELECT ordernumber FROM orders WHERE shippeddate IS NULL ORDER BY ordernumber", SQL_NTS);
     if (!SQL_SUCCEEDED(ret)) {
@@ -84,7 +82,7 @@ static int OrdersOpen(void) {
     
     (void) SQLBindCol(stmt, 1, SQL_C_CHAR,(SQLCHAR *) ordernum, BufferLength, NULL);
 
-    /* Loop through the rows in the result-set */
+    
     while (SQL_SUCCEEDED(ret = SQLFetch(stmt))) {
         printf("%s\n", ordernum);
     }
@@ -92,7 +90,7 @@ static int OrdersOpen(void) {
     (void) SQLCloseCursor(stmt);
     printf("\n");
 
-    /* free up statement handle */
+    
     ret2 = SQLFreeHandle(SQL_HANDLE_STMT, stmt);
     if (!SQL_SUCCEEDED(ret2)) {
         odbc_extract_error("", stmt, SQL_HANDLE_STMT);
@@ -108,9 +106,7 @@ static int OrdersOpen(void) {
     return EXIT_SUCCESS;
 }
 
-/*
- * example 4 with a queries build on-the-fly, the good way
- */
+
 static int OrdersRange(void) {
     SQLHENV env = NULL;
     SQLHDBC dbc = NULL;
@@ -159,7 +155,7 @@ static int OrdersRange(void) {
         (void) SQLBindCol(stmt, 2, SQL_C_CHAR,(SQLCHAR *) orderdate, BufferLength, NULL);
         (void) SQLBindCol(stmt, 3, SQL_C_CHAR,(SQLCHAR *) shippeddate, BufferLength, &ind_shipped);
 
-        /* Loop through the rows in the result-set */
+        
         while (SQL_SUCCEEDED(ret = SQLFetch(stmt))) {
             if (ind_shipped == SQL_NULL_DATA) {
                 strcpy(shippeddate, "NULL");
@@ -187,9 +183,7 @@ static int OrdersRange(void) {
     return EXIT_SUCCESS;
 }
 
-/*
- * example 4 with a queries build on-the-fly, the good way
- */
+
 static int OrdersDetail(void) {
     SQLHENV env = NULL;
     SQLHDBC dbc = NULL;
@@ -235,7 +229,7 @@ static int OrdersDetail(void) {
         (void) SQLBindCol(stmt, 2, SQL_C_CHAR,(SQLCHAR *) status, BufferLength, NULL);
         (void) SQLBindCol(stmt, 3, SQL_C_CHAR,(SQLCHAR *) totalcost, BufferLength, NULL);
 
-        /* Loop through the rows in the result-set */
+        
         if (SQL_SUCCEEDED(ret = SQLFetch(stmt))) {
             printf("Order Date=%s - status=%s\n", orderdate, status);
             printf("Total sum = %s\n", totalcost);
@@ -255,7 +249,7 @@ static int OrdersDetail(void) {
         (void) SQLBindCol(stmt, 2, SQL_C_CHAR,(SQLCHAR *) qty, BufferLength, NULL);
         (void) SQLBindCol(stmt, 3, SQL_C_CHAR,(SQLCHAR *) price, BufferLength, NULL);
 
-        /* Loop through the rows in the result-set */
+        
         while (SQL_SUCCEEDED(ret = SQLFetch(stmt))) {
             printf("%s %s %s\n", prodcode, qty, price);
         }

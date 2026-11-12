@@ -114,9 +114,7 @@ static int ProductsStock(void) {
     return EXIT_SUCCESS;
 }
 
-/*
- * example 4 with a queries build on-the-fly, the good way
- */
+
 static int ProductsFind(void) {
     SQLHENV env = NULL;
     SQLHDBC dbc = NULL;
@@ -160,7 +158,7 @@ static int ProductsFind(void) {
         (void) SQLBindCol(stmt, 1, SQL_C_CHAR,(SQLCHAR *) code, BufferLength, NULL);
         (void) SQLBindCol(stmt, 2, SQL_C_CHAR,(SQLCHAR *) name, BufferLength, NULL);
 
-        /* Loop through the rows in the result-set */
+        
         while (SQL_SUCCEEDED(ret = SQLFetch(stmt))) {
             printf("%s %s\n", code, name);
         }

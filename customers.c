@@ -54,9 +54,7 @@ void ShowCustomersMenu(void) {
     } while (nChoice != 4);
 }
 
-/*
- * example 4 with a queries build on-the-fly, the good way
- */
+
 static int CustomersFind(void) {
     SQLHENV env = NULL;
     SQLHDBC dbc = NULL;
@@ -132,9 +130,7 @@ static int CustomersFind(void) {
     return EXIT_SUCCESS;
 }
 
-/*
- * example 4 with a queries build on-the-fly, the good way
- */
+
 static int CustomersListProducts(void) {
     SQLHENV env = NULL;
     SQLHDBC dbc = NULL;
@@ -199,9 +195,7 @@ static int CustomersListProducts(void) {
     return EXIT_SUCCESS;
 }
 
-/*
- * example 4 with a queries build on-the-fly, the good way
- */
+
 static int CustomersBalance(void) {
     SQLHENV env = NULL;
     SQLHDBC dbc = NULL;
@@ -242,7 +236,7 @@ static int CustomersBalance(void) {
         
         (void) SQLBindCol(stmt, 1, SQL_C_CHAR,(SQLCHAR *) balance, BufferLength, NULL);
 
-        /* Loop through the rows in the result-set */
+        
         while (SQL_SUCCEEDED(ret = SQLFetch(stmt))) {
             printf("Balance = %s\n", balance);
         }
