@@ -6,7 +6,9 @@
 #include "odbc.h"
 #include "customers.h"
 
-#define BufferLength 512
+static int CustomersFind(void);
+static int CustomersListProducts(void);
+static int CustomersBalance(void);
 
 static int ShowCustomersSubMenu(void) {
     int nSelected = 0;
@@ -52,26 +54,32 @@ void ShowCustomersMenu(void) {
     } while (nChoice != 4);
 }
 
-/* 3.3.1 Find: Buscar clientes por contactfirstname o contactlastname */
-int CustomersFind(void) {
+/*
+ * example 4 with a queries build on-the-fly, the good way
+ */
+static int CustomersFind(void) {
     SQLHENV env = NULL;
     SQLHDBC dbc = NULL;
     SQLHSTMT stmt = NULL;
-    int ret;
-    SQLRETURN ret2;
+    int ret; /* odbc.c */
+    SQLRETURN ret2; /* ODBC API return status */
+    #define BufferLength 512
     char x[BufferLength] = "\0";
+    char param[1024];
     char custnum[BufferLength] = "\0";
     char custname[BufferLength] = "\0";
     char firstname[BufferLength] = "\0";
     char lastname[BufferLength] = "\0";
-    char query[2048];
 
+    /* CONNECT */
     ret = odbc_connect(&env, &dbc);
     if (!SQL_SUCCEEDED(ret)) {
         return EXIT_FAILURE;
     }
 
+    /* Allocate a statement handle */
     ret = SQLAllocHandle(SQL_HANDLE_STMT, dbc, &stmt);
+    ret = SQLPrepare(stmt, (SQLCHAR*) "SELECT customernumber, customername, contactfirstname, contactlastname FROM customers WHERE contactfirstname LIKE ? OR contactlastname LIKE ? ORDER BY customernumber", SQL_NTS);
     if (!SQL_SUCCEEDED(ret)) {
         odbc_extract_error("", stmt, SQL_HANDLE_ENV);
         return ret;
@@ -79,40 +87,43 @@ int CustomersFind(void) {
 
     printf("Enter customer name > ");
     (void) fflush(stdout);
-    if (fgets(x, (int) sizeof(x), stdin) != NULL) {
+    if (fgets(x, BufferLength, stdin) != NULL) {
         x[strcspn(x, "\r\n")] = '\0';
+        /*@ -bufferoverflowhigh @*/
+        sprintf(param, "%%%s%%", x);
+        /*@ =bufferoverflowhigh @*/
 
-        (void) sprintf(query,
-            "SELECT customernumber, customername, contactfirstname, contactlastname "
-            "FROM customers "
-            "WHERE contactfirstname LIKE '%%%s%%' OR contactlastname LIKE '%%%s%%' "
-            "ORDER BY customernumber;", x, x);
+        (void) SQLBindParameter(stmt, 1, SQL_PARAM_INPUT,
+                                SQL_C_CHAR, SQL_CHAR,
+                                0, 0, param, 0, NULL);
+        (void) SQLBindParameter(stmt, 2, SQL_PARAM_INPUT,
+                                SQL_C_CHAR, SQL_CHAR,
+                                0, 0, param, 0, NULL);
 
-        (void) SQLExecDirect(stmt, (SQLCHAR*) query, SQL_NTS);
+        (void) SQLExecute(stmt);
+        
+        (void) SQLBindCol(stmt, 1, SQL_C_CHAR,(SQLCHAR *) custnum, BufferLength, NULL);
+        (void) SQLBindCol(stmt, 2, SQL_C_CHAR,(SQLCHAR *) custname, BufferLength, NULL);
+        (void) SQLBindCol(stmt, 3, SQL_C_CHAR,(SQLCHAR *) firstname, BufferLength, NULL);
+        (void) SQLBindCol(stmt, 4, SQL_C_CHAR,(SQLCHAR *) lastname, BufferLength, NULL);
 
-        (void) SQLBindCol(stmt, 1, SQL_C_CHAR, (SQLCHAR*) custnum, BufferLength, NULL);
-        (void) SQLBindCol(stmt, 2, SQL_C_CHAR, (SQLCHAR*) custname, BufferLength, NULL);
-        (void) SQLBindCol(stmt, 3, SQL_C_CHAR, (SQLCHAR*) firstname, BufferLength, NULL);
-        (void) SQLBindCol(stmt, 4, SQL_C_CHAR, (SQLCHAR*) lastname, BufferLength, NULL);
-
+        /* Loop through the rows in the result-set */
         while (SQL_SUCCEEDED(ret = SQLFetch(stmt))) {
             printf("%s %s %s %s\n", custnum, custname, firstname, lastname);
         }
 
-        ret2 = SQLCloseCursor(stmt);
-        if (!SQL_SUCCEEDED(ret2)) {
-            odbc_extract_error("", stmt, SQL_HANDLE_STMT);
-            return ret;
-        }
+        (void) SQLCloseCursor(stmt);
     }
     printf("\n");
 
+    /* free up statement handle */
     ret2 = SQLFreeHandle(SQL_HANDLE_STMT, stmt);
     if (!SQL_SUCCEEDED(ret2)) {
         odbc_extract_error("", stmt, SQL_HANDLE_STMT);
         return ret;
     }
 
+    /* DISCONNECT */
     ret = odbc_disconnect(env, dbc);
     if (!SQL_SUCCEEDED(ret)) {
         return EXIT_FAILURE;
@@ -121,24 +132,29 @@ int CustomersFind(void) {
     return EXIT_SUCCESS;
 }
 
-/* 3.3.2 List Products: Productos solicitados por un cliente y suma de unidades */
-int CustomersListProducts(void) {
+/*
+ * example 4 with a queries build on-the-fly, the good way
+ */
+static int CustomersListProducts(void) {
     SQLHENV env = NULL;
     SQLHDBC dbc = NULL;
     SQLHSTMT stmt = NULL;
-    int ret;
-    SQLRETURN ret2;
+    int ret; /* odbc.c */
+    SQLRETURN ret2; /* ODBC API return status */
+    #define BufferLength 512
     char x[BufferLength] = "\0";
     char prodname[BufferLength] = "\0";
     char totalqty[BufferLength] = "\0";
-    char query[BufferLength + 256];
 
+    /* CONNECT */
     ret = odbc_connect(&env, &dbc);
     if (!SQL_SUCCEEDED(ret)) {
         return EXIT_FAILURE;
     }
 
+    /* Allocate a statement handle */
     ret = SQLAllocHandle(SQL_HANDLE_STMT, dbc, &stmt);
+    ret = SQLPrepare(stmt, (SQLCHAR*) "SELECT p.productname, SUM(od.quantityordered) FROM products p JOIN orderdetails od ON p.productcode = od.productcode JOIN orders o ON od.ordernumber = o.ordernumber WHERE o.customernumber = ? GROUP BY p.productcode, p.productname ORDER BY p.productcode", SQL_NTS);
     if (!SQL_SUCCEEDED(ret)) {
         odbc_extract_error("", stmt, SQL_HANDLE_ENV);
         return ret;
@@ -146,41 +162,35 @@ int CustomersListProducts(void) {
 
     printf("Enter customer number > ");
     (void) fflush(stdout);
-    if (fgets(x, (int) sizeof(x), stdin) != NULL) {
+    if (fgets(x, BufferLength, stdin) != NULL) {
         x[strcspn(x, "\r\n")] = '\0';
 
-        (void) sprintf(query,
-            "SELECT p.productname, SUM(od.quantityordered) "
-            "FROM products p "
-            "JOIN orderdetails od ON p.productcode = od.productcode "
-            "JOIN orders o ON od.ordernumber = o.ordernumber "
-            "WHERE o.customernumber = %s "
-            "GROUP BY p.productcode, p.productname "
-            "ORDER BY p.productcode;", x);
+        (void) SQLBindParameter(stmt, 1, SQL_PARAM_INPUT,
+                                SQL_C_CHAR, SQL_CHAR,
+                                0, 0, x, 0, NULL);
 
-        (void) SQLExecDirect(stmt, (SQLCHAR*) query, SQL_NTS);
+        (void) SQLExecute(stmt);
+        
+        (void) SQLBindCol(stmt, 1, SQL_C_CHAR,(SQLCHAR *) prodname, BufferLength, NULL);
+        (void) SQLBindCol(stmt, 2, SQL_C_CHAR,(SQLCHAR *) totalqty, BufferLength, NULL);
 
-        (void) SQLBindCol(stmt, 1, SQL_C_CHAR, (SQLCHAR*) prodname, BufferLength, NULL);
-        (void) SQLBindCol(stmt, 2, SQL_C_CHAR, (SQLCHAR*) totalqty, BufferLength, NULL);
-
+        /* Loop through the rows in the result-set */
         while (SQL_SUCCEEDED(ret = SQLFetch(stmt))) {
             printf("%s %s\n", prodname, totalqty);
         }
 
-        ret2 = SQLCloseCursor(stmt);
-        if (!SQL_SUCCEEDED(ret2)) {
-            odbc_extract_error("", stmt, SQL_HANDLE_STMT);
-            return ret;
-        }
+        (void) SQLCloseCursor(stmt);
     }
     printf("\n");
 
+    /* free up statement handle */
     ret2 = SQLFreeHandle(SQL_HANDLE_STMT, stmt);
     if (!SQL_SUCCEEDED(ret2)) {
         odbc_extract_error("", stmt, SQL_HANDLE_STMT);
         return ret;
     }
 
+    /* DISCONNECT */
     ret = odbc_disconnect(env, dbc);
     if (!SQL_SUCCEEDED(ret)) {
         return EXIT_FAILURE;
@@ -189,23 +199,28 @@ int CustomersListProducts(void) {
     return EXIT_SUCCESS;
 }
 
-/* 3.3.3 Balance: Suma de pagos menos suma de productos comprados */
-int CustomersBalance(void) {
+/*
+ * example 4 with a queries build on-the-fly, the good way
+ */
+static int CustomersBalance(void) {
     SQLHENV env = NULL;
     SQLHDBC dbc = NULL;
     SQLHSTMT stmt = NULL;
-    int ret;
-    SQLRETURN ret2;
+    int ret; /* odbc.c */
+    SQLRETURN ret2; /* ODBC API return status */
+    #define BufferLength 512
     char x[BufferLength] = "\0";
     char balance[BufferLength] = "\0";
-    char query[2048];
 
+    /* CONNECT */
     ret = odbc_connect(&env, &dbc);
     if (!SQL_SUCCEEDED(ret)) {
         return EXIT_FAILURE;
     }
 
+    /* Allocate a statement handle */
     ret = SQLAllocHandle(SQL_HANDLE_STMT, dbc, &stmt);
+    ret = SQLPrepare(stmt, (SQLCHAR*) "SELECT (SELECT COALESCE(SUM(amount), 0) FROM payments WHERE customernumber = ?) - (SELECT COALESCE(SUM(od.quantityordered * od.priceeach), 0) FROM orders o JOIN orderdetails od ON o.ordernumber = od.ordernumber WHERE o.customernumber = ?) AS balance", SQL_NTS);
     if (!SQL_SUCCEEDED(ret)) {
         odbc_extract_error("", stmt, SQL_HANDLE_ENV);
         return ret;
@@ -213,38 +228,37 @@ int CustomersBalance(void) {
 
     printf("Enter customer number > ");
     (void) fflush(stdout);
-    if (fgets(x, (int) sizeof(x), stdin) != NULL) {
+    if (fgets(x, BufferLength, stdin) != NULL) {
         x[strcspn(x, "\r\n")] = '\0';
 
-        (void) sprintf(query,
-            "SELECT "
-            "(SELECT COALESCE(SUM(amount), 0) FROM payments WHERE customernumber = %s) - "
-            "(SELECT COALESCE(SUM(od.quantityordered * od.priceeach), 0) "
-            " FROM orders o JOIN orderdetails od ON o.ordernumber = od.ordernumber "
-            " WHERE o.customernumber = %s) AS balance;", x, x);
+        (void) SQLBindParameter(stmt, 1, SQL_PARAM_INPUT,
+                                SQL_C_CHAR, SQL_CHAR,
+                                0, 0, x, 0, NULL);
+        (void) SQLBindParameter(stmt, 2, SQL_PARAM_INPUT,
+                                SQL_C_CHAR, SQL_CHAR,
+                                0, 0, x, 0, NULL);
 
-        (void) SQLExecDirect(stmt, (SQLCHAR*) query, SQL_NTS);
+        (void) SQLExecute(stmt);
+        
+        (void) SQLBindCol(stmt, 1, SQL_C_CHAR,(SQLCHAR *) balance, BufferLength, NULL);
 
-        (void) SQLBindCol(stmt, 1, SQL_C_CHAR, (SQLCHAR*) balance, BufferLength, NULL);
-
+        /* Loop through the rows in the result-set */
         while (SQL_SUCCEEDED(ret = SQLFetch(stmt))) {
             printf("Balance = %s\n", balance);
         }
 
-        ret2 = SQLCloseCursor(stmt);
-        if (!SQL_SUCCEEDED(ret2)) {
-            odbc_extract_error("", stmt, SQL_HANDLE_STMT);
-            return ret;
-        }
+        (void) SQLCloseCursor(stmt);
     }
     printf("\n");
 
+    /* free up statement handle */
     ret2 = SQLFreeHandle(SQL_HANDLE_STMT, stmt);
     if (!SQL_SUCCEEDED(ret2)) {
         odbc_extract_error("", stmt, SQL_HANDLE_STMT);
         return ret;
     }
 
+    /* DISCONNECT */
     ret = odbc_disconnect(env, dbc);
     if (!SQL_SUCCEEDED(ret)) {
         return EXIT_FAILURE;

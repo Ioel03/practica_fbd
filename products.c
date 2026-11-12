@@ -6,7 +6,8 @@
 #include "odbc.h"
 #include "products.h"
 
-#define BufferLength 512
+static int ProductsStock(void);
+static int ProductsFind(void);
 
 static int ShowProductsSubMenu(void) {
     int nSelected = 0;
@@ -48,23 +49,28 @@ void ShowProductsMenu(void) {
     } while (nChoice != 3);
 }
 
-/* 3.1.1 Stock: Unidades en stock dado un productcode */
-int ProductsStock(void) {
+/*
+ * example 4 with a queries build on-the-fly, the good way
+ */
+static int ProductsStock(void) {
     SQLHENV env = NULL;
     SQLHDBC dbc = NULL;
     SQLHSTMT stmt = NULL;
-    int ret;
-    SQLRETURN ret2;
+    int ret; /* odbc.c */
+    SQLRETURN ret2; /* ODBC API return status */
+    #define BufferLength 512
     char x[BufferLength] = "\0";
     char y[BufferLength] = "\0";
-    char query[BufferLength + 256];
 
+    /* CONNECT */
     ret = odbc_connect(&env, &dbc);
     if (!SQL_SUCCEEDED(ret)) {
         return EXIT_FAILURE;
     }
 
+    /* Allocate a statement handle */
     ret = SQLAllocHandle(SQL_HANDLE_STMT, dbc, &stmt);
+    ret = SQLPrepare(stmt, (SQLCHAR*) "SELECT quantityinstock FROM products WHERE productcode = ?", SQL_NTS);
     if (!SQL_SUCCEEDED(ret)) {
         odbc_extract_error("", stmt, SQL_HANDLE_ENV);
         return ret;
@@ -72,32 +78,34 @@ int ProductsStock(void) {
 
     printf("Enter productcode > ");
     (void) fflush(stdout);
-    if (fgets(x, (int) sizeof(x), stdin) != NULL) {
+    if (fgets(x, BufferLength, stdin) != NULL) {
         x[strcspn(x, "\r\n")] = '\0';
 
-        (void) sprintf(query, "SELECT quantityinstock FROM products WHERE productcode = '%s';", x);
+        (void) SQLBindParameter(stmt, 1, SQL_PARAM_INPUT,
+                                SQL_C_CHAR, SQL_CHAR,
+                                0, 0, x, 0, NULL);
 
-        (void) SQLExecDirect(stmt, (SQLCHAR*) query, SQL_NTS);
-        (void) SQLBindCol(stmt, 1, SQL_C_CHAR, (SQLCHAR*) y, BufferLength, NULL);
+        (void) SQLExecute(stmt);
+        
+        (void) SQLBindCol(stmt, 1, SQL_C_CHAR,(SQLCHAR *) y, BufferLength, NULL);
 
+        /* Loop through the rows in the result-set */
         while (SQL_SUCCEEDED(ret = SQLFetch(stmt))) {
             printf("%s\n", y);
         }
 
-        ret2 = SQLCloseCursor(stmt);
-        if (!SQL_SUCCEEDED(ret2)) {
-            odbc_extract_error("", stmt, SQL_HANDLE_STMT);
-            return ret;
-        }
+        (void) SQLCloseCursor(stmt);
     }
     printf("\n");
 
+    /* free up statement handle */
     ret2 = SQLFreeHandle(SQL_HANDLE_STMT, stmt);
     if (!SQL_SUCCEEDED(ret2)) {
         odbc_extract_error("", stmt, SQL_HANDLE_STMT);
         return ret;
     }
 
+    /* DISCONNECT */
     ret = odbc_disconnect(env, dbc);
     if (!SQL_SUCCEEDED(ret)) {
         return EXIT_FAILURE;
@@ -106,24 +114,30 @@ int ProductsStock(void) {
     return EXIT_SUCCESS;
 }
 
-/* 3.1.2 Find: Buscar productos por nombre ordenados por productcode */
-int ProductsFind(void) {
+/*
+ * example 4 with a queries build on-the-fly, the good way
+ */
+static int ProductsFind(void) {
     SQLHENV env = NULL;
     SQLHDBC dbc = NULL;
     SQLHSTMT stmt = NULL;
-    int ret;
-    SQLRETURN ret2;
+    int ret; /* odbc.c */
+    SQLRETURN ret2; /* ODBC API return status */
+    #define BufferLength 512    
     char x[BufferLength] = "\0";
+    char param[1024];
     char code[BufferLength] = "\0";
     char name[BufferLength] = "\0";
-    char query[BufferLength + 256];
 
+    /* CONNECT */
     ret = odbc_connect(&env, &dbc);
     if (!SQL_SUCCEEDED(ret)) {
         return EXIT_FAILURE;
     }
 
+    /* Allocate a statement handle */
     ret = SQLAllocHandle(SQL_HANDLE_STMT, dbc, &stmt);
+    ret = SQLPrepare(stmt, (SQLCHAR*) "SELECT productcode, productname FROM products WHERE productname LIKE ? ORDER BY productcode", SQL_NTS);
     if (!SQL_SUCCEEDED(ret)) {
         odbc_extract_error("", stmt, SQL_HANDLE_ENV);
         return ret;
@@ -131,34 +145,38 @@ int ProductsFind(void) {
 
     printf("Enter productname > ");
     (void) fflush(stdout);
-    if (fgets(x, (int) sizeof(x), stdin) != NULL) {
+    if (fgets(x, BufferLength, stdin) != NULL) {
         x[strcspn(x, "\r\n")] = '\0';
+        /*@ -bufferoverflowhigh @*/
+        sprintf(param, "%%%s%%", x);
+        /*@ =bufferoverflowhigh @*/
+        
+        (void) SQLBindParameter(stmt, 1, SQL_PARAM_INPUT,
+                                SQL_C_CHAR, SQL_CHAR,
+                                0, 0, param, 0, NULL);
 
-        (void) sprintf(query, "SELECT p.productcode, p.productname FROM products p WHERE p.productname LIKE '%%%s%%' ORDER BY p.productcode;", x);
+        (void) SQLExecute(stmt);
+        
+        (void) SQLBindCol(stmt, 1, SQL_C_CHAR,(SQLCHAR *) code, BufferLength, NULL);
+        (void) SQLBindCol(stmt, 2, SQL_C_CHAR,(SQLCHAR *) name, BufferLength, NULL);
 
-        (void) SQLExecDirect(stmt, (SQLCHAR*) query, SQL_NTS);
-
-        (void) SQLBindCol(stmt, 1, SQL_C_CHAR, (SQLCHAR*) code, BufferLength, NULL);
-        (void) SQLBindCol(stmt, 2, SQL_C_CHAR, (SQLCHAR*) name, BufferLength, NULL);
-
+        /* Loop through the rows in the result-set */
         while (SQL_SUCCEEDED(ret = SQLFetch(stmt))) {
             printf("%s %s\n", code, name);
         }
 
-        ret2 = SQLCloseCursor(stmt);
-        if (!SQL_SUCCEEDED(ret2)) {
-            odbc_extract_error("", stmt, SQL_HANDLE_STMT);
-            return ret;
-        }
+        (void) SQLCloseCursor(stmt);
     }
     printf("\n");
 
+    /* free up statement handle */
     ret2 = SQLFreeHandle(SQL_HANDLE_STMT, stmt);
     if (!SQL_SUCCEEDED(ret2)) {
         odbc_extract_error("", stmt, SQL_HANDLE_STMT);
         return ret;
     }
 
+    /* DISCONNECT */
     ret = odbc_disconnect(env, dbc);
     if (!SQL_SUCCEEDED(ret)) {
         return EXIT_FAILURE;
